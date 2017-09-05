@@ -1,0 +1,191 @@
+package cn.edu.buaa.state;
+
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+
+public class EventQueueOperation {
+
+	private List<EventState> eventQueue = new ArrayList<EventState>();
+	private String crash = null;
+	private String tact = null; 
+
+	public EventQueueOperation() {
+		super();
+	}
+
+	//The method to read log file script.log and get event information
+	private void readScriptLog(String filePath) throws IOException{
+		FileInputStream scriptStream = new FileInputStream(filePath + "script.log");
+		DataInputStream scriptInputStream = new DataInputStream(scriptStream);
+		BufferedReader scriptBufferedReader = new BufferedReader(new InputStreamReader(scriptInputStream));
+
+		int count = 0;
+        String line;
+
+        while ((line = scriptBufferedReader.readLine()) != null) {
+        	count ++;
+        	if(count <= 5) {
+        		continue;
+        	}
+            line = line.trim();
+
+            EventState bas = new EventState();
+            bas.setIndex(count - 5);
+            bas.setEvent(line);
+            eventQueue.add(bas);
+        }
+                
+        scriptBufferedReader.close();
+        scriptInputStream.close();
+        scriptStream.close();
+	}
+
+	//The method to read log file execute.log and get state information
+	private void readExecuteLog(String filePath) throws IOException{
+		FileInputStream execStream = new FileInputStream(filePath + "execute.log");
+		DataInputStream execInputStream = new DataInputStream(execStream);
+		BufferedReader execBufferedReader = new BufferedReader(new InputStreamReader(execInputStream));
+		
+		int status = 0;
+		String pkgName = null;
+		String activity = null;
+		
+		int count = 0;
+		String line;
+		
+		while ((line = execBufferedReader.readLine()) != null) {
+			if(line.indexOf("Throttle") >= 0){
+				eventQueue.get(count).setPkgName(pkgName);
+				eventQueue.get(count).setActivity(activity);
+				eventQueue.get(count).setInjectCode(status);
+				count++;
+				continue;
+			}
+			if(line.indexOf("CRASH") >= 0){
+				break;
+			}
+			String[] logLine = line.split(";");
+			pkgName = logLine[2].trim();
+			activity = logLine[3].trim();
+			status = Integer.parseInt(logLine[4]);
+		}
+		eventQueue.get(count).setPkgName(pkgName);
+		eventQueue.get(count).setActivity(activity);
+		eventQueue.get(count).setInjectCode(status);
+		
+		execBufferedReader.close();
+		execInputStream.close();
+		execStream.close();
+	}
+	
+	//The method to manage the reading of log files
+	public List<EventState> readLog(String filePath){
+		try {
+			readScriptLog(filePath);
+			readExecuteLog(filePath);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}		
+		return eventQueue;
+	}
+	
+	//The method to read given state log execute.log and extract crash information
+	public String getCrash(String filePath){
+		try{
+			FileInputStream execStream = new FileInputStream(filePath);
+			DataInputStream execInputStream = new DataInputStream(execStream);
+			BufferedReader execBufferedReader = new BufferedReader(new InputStreamReader(execInputStream));
+			
+			String line;
+			
+			while ((line = execBufferedReader.readLine()) != null) {			
+				if(line.indexOf("CRASH") >= 0 
+						|| line.indexOf("NOT RESPONDING") >= 0
+						|| line.indexOf("WATCHDOG") >= 0){
+					crash = line;
+					break;
+				}		
+			}
+			
+			execBufferedReader.close();
+			execInputStream.close();
+			execStream.close();
+		}
+		catch(IOException e){
+			e.printStackTrace();
+		}
+		return crash;
+	}
+
+	//The method to read given state log execute.log and extract target activity information
+	public String getTargetActivity(String filePath){
+		try{
+			FileInputStream execStream = new FileInputStream(filePath);
+			DataInputStream execInputStream = new DataInputStream(execStream);
+			BufferedReader execBufferedReader = new BufferedReader(new InputStreamReader(execInputStream));
+			
+			String line;
+			String activity = null;
+			
+			while ((line = execBufferedReader.readLine()) != null) {
+				if(line.indexOf("Throttle") >= 0){
+					String[] logLine = line.split(";");
+					activity = logLine[3].trim();
+					tact = activity;
+					continue;
+				}
+			}
+			
+			execBufferedReader.close();
+			execInputStream.close();
+			execStream.close();
+		}
+		catch(IOException e){
+			e.printStackTrace();
+		}
+		return tact;
+	}
+	
+	//The method to 
+//	public EventState getEventState(int idx) {
+//		for(int i = 0; i < eventQueue.size(); i++){
+//			if(eventQueue.get(i).getIndex() == idx)
+//				return eventQueue.get(i);
+//		}
+//		return null;
+//	}
+	
+	public boolean printScript(List<EventState> eQueue, String filePath){
+		File fp = new File(filePath + "script_tmp.log");
+		if(fp.exists()){
+			fp.delete();
+		}
+		try {
+			fp.createNewFile();
+			FileWriter fpWriter = new FileWriter(fp, true);
+			fpWriter.write("# Start Script\n");
+			fpWriter.write("type= user\n");
+			fpWriter.write("count= 10\n");
+			fpWriter.write("speed= 1.0\n" );
+			fpWriter.write("start data >>\n");
+			for(int i = 0; i < eQueue.size(); i++){
+				fpWriter.write(eQueue.get(i).getEvent());
+				fpWriter.write("\n");
+			}
+			fpWriter.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		}
+		
+		return true;
+	}
+	
+}

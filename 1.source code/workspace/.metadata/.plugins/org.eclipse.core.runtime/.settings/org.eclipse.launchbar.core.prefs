@@ -1,0 +1,9 @@
+LaunchTargetManager/org.eclipse.launchbar.core.launchTargetType.local,Local/arch=x86_64
+LaunchTargetManager/org.eclipse.launchbar.core.launchTargetType.local,Local/os=win32
+configDescList=org.eclipse.launchbar.core.descriptorType.default\:Monkey,org.eclipse.launchbar.core.descriptorType.default\:EventQueueOperation,org.eclipse.launchbar.core.descriptorType.default\:Generator,org.eclipse.launchbar.core.descriptorType.default\:HierarchyDeltaDebugging,org.eclipse.launchbar.core.descriptorType.default\:ReducerRunner,org.eclipse.launchbar.core.descriptorType.default\:ReducerRunner (1),org.eclipse.launchbar.core.descriptorType.default\:ReductionRunner
+eclipse.preferences.version=1
+org.eclipse.launchbar.core.descriptorType.default\:EventQueueOperation/activeLaunchMode=run
+org.eclipse.launchbar.core.descriptorType.default\:EventQueueOperation/activeLaunchTarget=org.eclipse.launchbar.core.launchTargetType.local\:Local
+org.eclipse.launchbar.core.descriptorType.default\:ReducerRunner\ (1)/activeLaunchMode=run
+org.eclipse.launchbar.core.descriptorType.default\:ReducerRunner/activeLaunchMode=run
+org.eclipse.launchbar.core.descriptorType.default\:ReductionRunner/activeLaunchMode=run

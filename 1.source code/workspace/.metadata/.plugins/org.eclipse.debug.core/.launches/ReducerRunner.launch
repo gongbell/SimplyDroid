@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.eclipse.jdt.launching.localJavaApplication">
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+<listEntry value="/MonkeyReducer/src/cn/edu/buaa/les/lt/ReducerRunner.java"/>
+</listAttribute>
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+<listEntry value="1"/>
+</listAttribute>
+<stringAttribute key="org.eclipse.debug.ui.ATTR_CAPTURE_IN_FILE" value="H:\201607AndroidTest\201703mu\result\eclipselog.txt"/>
+<stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="cn.edu.buaa.les.lt.ReducerRunner"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="MonkeyReducer"/>
+</launchConfiguration>

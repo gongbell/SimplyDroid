@@ -1,0 +1,570 @@
+package cn.edu.buaa.reduction;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+//import org.w3c.dom.Node;
+
+import cn.edu.buaa.ReductionRunner;
+import cn.edu.buaa.command.AdbOperation;
+import cn.edu.buaa.state.EventQueueOperation;
+import cn.edu.buaa.state.EventState;
+import cn.edu.buaa.util.MD5;
+
+public class LocalHierarchicalDeltaDebugging {
+	private static final int TESTCASE_DELTA = 0;
+	private static final int TESTCASE_GRADIENT = 1;
+	private Set<String> failedSet = new HashSet<String>();
+	private List<Integer> minConfig = new ArrayList<Integer>();
+	private List<EventState> upSubList = new ArrayList<EventState>();
+	private HashMap<Integer, ArrayList<EventState>> downSubListMap = new HashMap<Integer, ArrayList<EventState>>();
+	private List<EventState> lastSubList = new ArrayList<EventState>();
+	private List<Integer> downSubListGroup = new ArrayList<Integer>();
+	
+	private List<EventState> eQueue = new ArrayList<EventState>();
+	private String crash = null;
+	private String targetActivity = null;
+	private HddTreeNode root = null;
+	private ArrayList<HddTreeNode> nodeList = new ArrayList<HddTreeNode>();
+	
+	int level;
+	int maxlevel;
+	int sublistsize;
+	int index;
+	boolean includecheck = false;
+	boolean needBHDD = false;
+
+	public LocalHierarchicalDeltaDebugging() {
+		index = 0;
+	}
+	
+	public LocalHierarchicalDeltaDebugging(int idx) {
+		index = idx;
+	}	
+
+	//The method of LHDD reduction entrance
+	public void reduce(){
+		System.out.println("Trace " + index + " LHDD. Start.");
+		long startTime = System.currentTimeMillis();
+
+		//read the log files and extract crash information
+		EventQueueOperation eopt = new EventQueueOperation();
+		eQueue = eopt.readLog(ReductionRunner.generateOriginPath(index));
+		crash = eopt.getCrash(ReductionRunner.generateOriginPath(index) + "execute.log");
+		if(crash != null && !crash.equals(""))
+		{
+			root = new HddTreeNode();
+			//build the hierarchy tree
+			createHddTree(root, eQueue);
+			//record the level of the last node within hierarchy tree
+			maxlevel = nodeList.get(nodeList.size() - 1).getLevel();
+			//run the LHDD reduction
+			hdd(root);			
+		}
+		else
+			System.out.println("Something wrong while getting crash info.");
+		
+		long endTime = System.currentTimeMillis();
+		//calculate the time used while reduction completed
+		System.out.println("Trace " + index + " LHDD. Time used : " + (endTime - startTime) + "ms");
+		ReductionRunner.calculateTime(endTime - startTime);
+		System.out.println("------------------------------------------------");
+	}
+
+	//The method to build the hierarchy tree
+	private void createHddTree(HddTreeNode root, List<EventState> list){
+		root.setIdx(1);
+		root.setLevel(0);
+		root.setEvent(list.get(0).getEvent());
+		root.setState(list.get(0).getActivity());
+		root.setParentNode(null);
+		nodeList.add(null);
+		nodeList.add(root);
+
+		maxlevel = 0;
+		
+		int i;
+		HddTreeNode thisNode,lastNode,seekNode;
+		lastNode=root;
+		for(i=1; i<list.size(); i++)
+		{
+			//establish new node for each element in event sequence
+			thisNode = new HddTreeNode(i+1, -1, list.get(i).getEvent(), list.get(i).getActivity(), null, new ArrayList<HddTreeNode>());
+			//search a node having same state information within the route from last node to root node
+			for(seekNode=lastNode; ; seekNode=seekNode.getParentNode())
+			{
+				//searching failed, set new node as a child node of last node
+				if(seekNode.getIdx() == 1)
+				{
+					thisNode.setParentNode(lastNode);
+					lastNode.addChildNode(thisNode);
+					thisNode.setLevel(lastNode.getLevel() + 1);
+					break;
+				}
+				//searching succeed, set new node as a sibling node of target node
+				if(seekNode.getState().equals(thisNode.getState()))
+				{
+					thisNode.setParentNode(seekNode.getParentNode());
+					seekNode.getParentNode().addChildNode(thisNode);
+					thisNode.setLevel(seekNode.getLevel());
+					break;
+				}
+			}
+			nodeList.add(thisNode);
+			lastNode = thisNode;
+		}
+	}
+
+	//The method to manage the reduction within hierarchy tree
+	private void hdd(HddTreeNode root){
+		level = 1;
+
+		//tag nodes within level 1
+		List<Integer> curNodes = new ArrayList<Integer>();
+		curNodes.add(root.getIdx());
+		List<Integer> nodes = tagNodes(curNodes);
+		List<Integer> nodesincluded = null;
+
+		//do reduction level by level until there is no node in next level
+		while(nodes.size() != 0){
+			needBHDD = false;
+			//generate event sequence of nodes above the level doing reduction on now
+			upSubList = createUpSubList();
+			//generate event sequences match to the subtree of each node except the last node within the level
+			//doing reduction on now
+			downSubListMap.clear();
+			int i = 0;
+			for(i = 0; i<nodes.size()-1; i++){
+				sublistsize=0;
+				downSubListMap.put(nodes.get(i), createDownSubList(nodes.get(i)));
+				nodeList.get(nodes.get(i)).setSubtreenodes(sublistsize);
+			}
+			//for the last node within the level, the subtree is not considered at first
+			downSubListMap.put(nodes.get(i), new ArrayList<EventState>(eQueue.subList(nodes.get(i) - 1, nodes.get(i))));
+			sublistsize = 0;
+			lastSubList = createDownSubList(nodes.get(i));
+			nodeList.get(nodes.get(i)).setSubtreenodes(sublistsize);			
+			
+			//record target activity while the level now is above the level of last node
+			if(level < maxlevel)
+				targetActivity = nodeList.get(nodes.get(nodes.size() - 1) + 1).getState();
+			else
+				targetActivity = null;
+			System.out.println("level: " + level + "  Target: " + targetActivity);
+			
+			if(level <= maxlevel)
+				//begin preselecting while the level now is not under the level of last node
+				nodesincluded = includeNodes(nodes);
+			else
+			{
+				//use BHDD to do reduction within this level while the level now is under the level of last node
+				nodesincluded = new ArrayList<Integer>(nodes);
+				needBHDD = true;
+				downSubListMap.remove(nodes.get(nodes.size() - 1));
+				downSubListMap.put(nodes.get(nodes.size() - 1), (ArrayList<EventState>) lastSubList);
+			}
+
+			//do reduction on nodes within this level
+			ddmin(nodesincluded);
+			//after reduction eliminate useless nodes from hierarchy tree			
+			pruneHddTree(nodes);
+			level++;
+			//tag nodes in next level
+			nodes = tagNodes(minConfig);	//标记下层待处理节点
+		}
+		executeEventList(null);
+	}
+
+	//The method to return node index sequence of all the child nodes of given nodes
+	private List<Integer> tagNodes(List<Integer> config){
+		List<Integer> nodes = new ArrayList<Integer>();
+		int i,j;
+		for(i=0; i<config.size();i++)
+			for(j=0; j<nodeList.get(config.get(i)).getChildNodes().size(); j++)
+				nodes.add(nodeList.get(config.get(i)).getChildNodes().get(j).getIdx());
+		return nodes;
+	}
+	
+	//The method to preselect nodes
+	private List<Integer> includeNodes(List<Integer> nodes){
+		List<Integer> nodesNeed = new ArrayList<Integer>();
+		nodesNeed.add(nodes.get(nodes.size() - 1));
+		List<EventState> nodesTry = null;
+		//set default preselecting length as 1
+		int length = 1;
+		String sign = null;
+		
+		do{
+			System.out.println("Pretreatment, length: " + length);
+			//orderly insert to the event sequence all events within each event sequence match to the 
+			//preselected nodes to generate the attempt event sequence
+			nodesTry = new ArrayList<EventState>(upSubList);
+			for(int i = 0, j = 0; i < nodesNeed.size(); i++)
+			{
+				int idx = downSubListMap.get(nodesNeed.get(i)).get(0).getIndex();
+				while(j<nodesTry.size() && nodesTry.get(j).getIndex() < idx)
+					j++;
+				nodesTry.addAll(j, downSubListMap.get(nodesNeed.get(i)));
+					j+=downSubListMap.get(nodesNeed.get(i)).size();
+			}
+			sign = MD5.getMD5(nodesTry);
+
+			//execute the event sequence on testing phone and check whether target activity is arrived
+			if(executeEventList(nodesTry))
+			{
+				//if preselection succeed and there is need for extra check
+				if(ReductionRunner.NEED_EXTRACHECK)
+				{
+					System.out.println("Check pretreatment result");
+					//do extra check
+					if(CheckIncludeResult(nodesTry))
+						break;
+					else
+					{
+						//use BHDD to do reduction within this level while extra check is not passed
+						System.out.println("Pretreatment failed, start BHDD");
+						needBHDD = true;
+						downSubListMap.remove(nodes.get(nodes.size() - 1));
+						downSubListMap.put(nodes.get(nodes.size() - 1), (ArrayList<EventState>) lastSubList);
+						return nodes;	
+					}					
+				}
+				else
+					//return the preselecting result nodes
+					break;
+			}
+			
+			if(!failedSet.contains(sign))
+				failedSet.add(sign);
+			
+			//if preselection failed then double the preselecting length
+			length = length * 2;
+			if(length > nodes.size())
+			{
+				//use BHDD to do reduction within this level while no preselection succeed until the preselecting 
+				//length reach the number of nodes within this level
+				System.out.println("Pretreatment failed, start BHDD");
+				needBHDD = true;
+				downSubListMap.remove(nodes.get(nodes.size() - 1));
+				downSubListMap.put(nodes.get(nodes.size() - 1), (ArrayList<EventState>) lastSubList);
+				return nodes;	
+			}
+			nodesNeed = new ArrayList<Integer>(nodes.subList(nodes.size() - length, nodes.size()));
+		}while(length < nodes.size());
+		return nodesNeed;
+	}
+
+	//The method to do extra check on preselecting result nodes
+	private boolean CheckIncludeResult(List<EventState> nodes) {
+		includecheck = true;
+		//remove the last event and add the event sequence match to the subtree of last node
+		nodes.remove(nodes.size() - 1);
+		nodes.addAll(lastSubList);
+		
+		//check whether same crash is reproduced
+		return executeEventList(nodes);
+	}
+	
+	//The method to manage the generation of event sequence of nodes above the level now
+	private ArrayList<EventState> createUpSubList(){
+		ArrayList<EventState> list = new ArrayList<EventState>();
+		AddUpEventState(list, nodeList.get(1));
+		return list; 
+	}
+
+	//The method to add events to the event sequence of nodes above the level now recursively
+	private void AddUpEventState(ArrayList<EventState> currList, HddTreeNode currNode){
+		currList.add(eQueue.get(currNode.getIdx()-1));
+		if(level == currNode.getLevel()+1)
+			return;
+		int i;
+		for(i=0; i<currNode.getChildNodes().size(); i++)
+			AddUpEventState(currList, currNode.getChildNodes().get(i));
+		return;
+	}
+
+	//The method to add events to the event sequence match to the subtree of a given node recursively
+	private ArrayList<EventState> createDownSubList(int idx)
+	{
+		ArrayList<EventState> list = new ArrayList<EventState>();
+		AddDownEventState(list, nodeList.get(idx));
+		return list; 
+	}
+
+	//递归下子树生成过程	Input:当前序列、当前节点
+	private void AddDownEventState(ArrayList<EventState> currList, HddTreeNode currNode)
+	{
+		currList.add(eQueue.get(currNode.getIdx()-1));
+		sublistsize++;
+		int i;
+		for(i=0; i<currNode.getChildNodes().size(); i++)
+			AddDownEventState(currList, currNode.getChildNodes().get(i));
+		return;
+	}
+
+	//HDD树清理无效节点	Input:当前层有效节点序列
+	private void pruneHddTree(List<Integer> nodes){
+		List<Integer> temp = new ArrayList<Integer>(nodes);
+		temp.removeAll(minConfig);
+		
+		int i,j;
+		for(i=0; i<temp.size(); i++)
+		{
+			j = temp.get(i);
+			nodeList.get(j).getParentNode().getChildNodes().remove(nodeList.get(j));
+			destroyChildNodes(j);
+		}
+	}
+
+	//HDD树子树清理	Input:子树根节点编号
+	private void destroyChildNodes(int idx){
+		int i;
+		nodeList.get(idx).setParentNode(null);
+		for(i=0; i<nodeList.get(idx).getChildNodes().size(); i++)
+		{
+			destroyChildNodes(nodeList.get(idx).getChildNodes().get(i).getIdx());
+		}
+		nodeList.get(idx).getChildNodes().clear();
+		nodeList.remove(idx);
+		nodeList.add(idx, null);
+		return;
+	}
+
+	//HDD树中待处理节点的ddmin处理	Input:待处理节点序列
+	private void ddmin(List<Integer> nodes){
+//		int i;
+//		upSubList = createUpSubList();
+//		downSubListMap.clear();
+//		for(i=0; i<nodes.size(); i++){
+//			sublistsize=0;
+//			downSubListMap.put(nodes.get(i), createDownSubList(nodes.get(i)));
+//			nodeList.get(nodes.get(i)).setSubtreenodes(sublistsize);
+//		}
+		minConfig = new ArrayList<Integer>(nodes);
+		ddmin(nodes, 2);	//开始ddmin处理
+		return;
+	}
+
+	//ddmin处理控制	Input:待处理节点序列、分段数
+	private void ddmin(List<Integer> nodes, int part){
+		System.out.println("EQ: " + nodes.size() + ", partition: " + part);
+		if(nodes.size() == 1)
+			return;
+		if(nodes.size() < part)
+			part=nodes.size();
+		if(needBHDD)
+			setDownSubListGroup(nodes, part);
+		boolean succ = false;
+		succ = execDeltaOrGrad(nodes, part, TESTCASE_DELTA);	//尝试子集
+		if(succ) return;
+		else succ = execDeltaOrGrad(nodes, part, TESTCASE_GRADIENT);	//若失败，尝试子集补集
+		if(succ) return;
+		
+		if(!succ && part < nodes.size()) {	//若失败，增加分段数
+			ddmin(nodes, Math.min(nodes.size(), 2 * part));
+		}
+//		else{
+//			reprintResult(nodes);
+//		}
+		return;
+	}
+
+	//计算非均分HDD的分组信息	Input:节点序列、分段数
+	private void setDownSubListGroup(List<Integer> nodes, int part)
+	{
+		int i,l,n=0;
+		downSubListGroup.clear();
+
+		float avgsize;
+		for(i=0; i<nodes.size(); i++){
+			n += nodeList.get(nodes.get(i)).getSubtreenodes();
+		}
+		avgsize = (float)n / part;
+		for(i=0, l=nodes.size()-part, n=0; i<nodes.size(); i++){
+			if(l == 0){
+				downSubListGroup.add(i);
+				continue;
+			}
+			n += nodeList.get(nodes.get(i)).getSubtreenodes();
+			if(n >= avgsize){
+				n = 0;
+				downSubListGroup.add(i);
+				continue;
+			}
+			l--;
+		}
+	}
+	
+	//ddmin分段与结果处理	Input:节点序列、分段数、生成方式	Output:该分段下能否到达下一Activity或能否触发CRASH
+	private boolean execDeltaOrGrad(List<Integer> tmpQueue, int partition, int type){
+		List<Integer> currList = tmpQueue;
+		List<Integer> attpList = new ArrayList<Integer>();
+		int partsize = (currList.size() + 1) / partition;
+		boolean succ = false, isCrash = false;
+		String sign = null;
+		for(int i = ((type == TESTCASE_DELTA)? partition-1: partition-2); i >= ((type == TESTCASE_DELTA)? partition-1:0); i--){
+			List<EventState> tmp = null;
+			if(needBHDD)
+				tmp = createEventList(currList, i, type, attpList);
+			else
+				tmp = createEventList(currList, i, partsize, type, attpList);			
+			
+			sign = MD5.getMD5(tmp);
+			if(failedSet.contains(sign)) continue;
+			isCrash = executeEventList(tmp);
+			if(isCrash){
+				succ = true;
+				minConfig = new ArrayList<Integer>(attpList);
+				if(type == TESTCASE_DELTA)	{	//若CRASH重现，对该序列继续进行ddmin处理
+					ddmin(attpList, 2);
+				}
+				else {
+					ddmin(attpList, Math.max(partition - 1, 2));
+				}
+				break;
+			} else {	//若CRASH无法重现，加入失败集合
+				if(!failedSet.contains(sign))
+					failedSet.add(sign);
+			}			
+		}
+		return succ;
+	}
+
+	//HDD方案 按照ddmin生成待测试事件序列	Input:节点序列、当前段数、分段长度、生成方式	Output:事件序列
+	private List<EventState> createEventList(List<Integer> queue, int idx, int size, int type, List<Integer> queuer){
+		List<EventState> res = new ArrayList<EventState>(upSubList);
+//		ArrayList<ArrayList<EventState>> tmp = new ArrayList<ArrayList<EventState>>();
+		queuer.clear();
+		int i,j,k;
+//		int i;
+		if(type == TESTCASE_DELTA){
+			for(i = idx * size, j = 0; i < Math.min(queue.size(), (idx+1) * size); i++){
+//				tmp.add(downSubListMap.get(queue.get(i)));
+//				res.add(eQueue.get(queue.get(i) - 1));
+				queuer.add(queue.get(i));				
+
+				k = downSubListMap.get(queue.get(i)).get(0).getIndex();
+				while(j<res.size() && res.get(j).getIndex() < k)
+					j++;
+				res.addAll(j, downSubListMap.get(queue.get(i)));
+					j+=downSubListMap.get(queue.get(i)).size();
+			}			
+		}
+		if(type == TESTCASE_GRADIENT){
+			for(i = 0, j = 0; i < queue.size(); i++){
+				if(i < idx * size || i >= (idx+1) * size){
+//					tmp.add(downSubListMap.get(queue.get(i)));
+//					res.add(eQueue.get(queue.get(i) - 1));
+					queuer.add(queue.get(i));
+					
+					k = downSubListMap.get(queue.get(i)).get(0).getIndex();
+					while(j<res.size() && res.get(j).getIndex() < k)
+						j++;
+					res.addAll(j, downSubListMap.get(queue.get(i)));
+						j+=downSubListMap.get(queue.get(i)).size();
+				}
+			}
+		}
+		
+//		for(i=0, j=0; i<tmp.size(); i++)
+//		{
+//			k=tmp.get(i).get(tmp.get(i).size()-1).getIndex();
+//			while(j<res.size() && res.get(j).getIndex()<k)
+//				j++;
+//			res.addAll(j, tmp.get(i));
+//			j+=tmp.get(i).size();
+//		}		
+		return res;
+	}
+
+	//IHDD方案 按照ddmin生成待测试事件序列	Input:节点序列、当前段数、生成方式	Output:事件序列
+	private List<EventState> createEventList(List<Integer> queue, int idx, int type, List<Integer> queuer){
+		List<EventState> res = new ArrayList<EventState>(upSubList);
+//		ArrayList<ArrayList<EventState>> tmp = new ArrayList<ArrayList<EventState>>();
+		queuer.clear();
+		int i,j,k,i0,i1;
+		i0 = (idx==0? 0: downSubListGroup.get(idx-1)+1);
+		i1 = downSubListGroup.get(idx);
+		if(type == TESTCASE_DELTA){
+			for(i = i0, j = 0; i <= i1; i++){
+//				tmp.add(downSubListMap.get(queue.get(i)));
+				queuer.add(queue.get(i));
+				
+				k = downSubListMap.get(queue.get(i)).get(0).getIndex();
+				while(j<res.size() && res.get(j).getIndex() < k)
+					j++;
+				res.addAll(j, downSubListMap.get(queue.get(i)));
+					j+=downSubListMap.get(queue.get(i)).size();
+			}			
+		}
+		if(type == TESTCASE_GRADIENT){
+			for(i = 0, j = 0; i < queue.size(); i++){
+				if(i < i0 || i > i1){
+//					tmp.add(downSubListMap.get(queue.get(i)));
+					queuer.add(queue.get(i));
+
+					k = downSubListMap.get(queue.get(i)).get(0).getIndex();
+					while(j<res.size() && res.get(j).getIndex() < k)
+						j++;
+					res.addAll(j, downSubListMap.get(queue.get(i)));
+						j+=downSubListMap.get(queue.get(i)).size();
+				}
+			}
+		}
+//		
+//		for(i=0, j=0; i<tmp.size(); i++)
+//		{
+//			k=tmp.get(i).get(tmp.get(i).size()-1).getIndex();
+//			while(j<res.size() && res.get(j).getIndex()<k)
+//				j++;
+//			res.addAll(j, tmp.get(i));
+//			j+=tmp.get(i).size();
+//		}		
+		return res;
+	}
+			
+	//在测试机执行事件序列	Input:事件序列	Output:该序列下能否到达下一Activity或能否触发CRASH
+	private boolean executeEventList(List<EventState> list){
+		if(list != null)
+			printResult(list);
+		
+		AdbOperation adb = new AdbOperation();
+		adb.execAdbShell(ReductionRunner.generateResultPath(index, 4), ReductionRunner.DEVICE_TMP_PATH, ReductionRunner.DEVICE_MONKEY_PATH, ReductionRunner.DEVICE_ID, ReductionRunner.PACKAGE_NAME, ReductionRunner.THROTTLE_TIME_MS);
+
+		return checkResult();
+	}
+
+	//将待测试事件序列存入文件	Input:事件序列
+	private void printResult(List<EventState> list){
+		List<EventState> tmp = new ArrayList<EventState>(list);
+		EventQueueOperation eqo = new EventQueueOperation();
+		eqo.printScript(tmp, ReductionRunner.generateResultPath(index, 4));
+	}
+
+	//序列执行结果检测	 Output:该序列下能否到达下一Activity或能否触发CRASH
+	private boolean checkResult(){
+		EventQueueOperation eqo = new EventQueueOperation();
+		if(level >= maxlevel || includecheck || needBHDD) {	//若为末层或检测预选结果则检查是否触发CRASH
+			includecheck = false;
+			String newCrash = eqo.getCrash(ReductionRunner.generateResultPath(index, 4) + "execute_tmp.log");
+			if(newCrash != null && newCrash.equals(crash))
+			{
+				AdbOperation adb = new AdbOperation();
+				adb.recordResult(ReductionRunner.generateResultPath(index, 4), ReductionRunner.DEVICE_TMP_PATH, ReductionRunner.DEVICE_ID);
+				return true;
+			}
+			else
+				return false;
+		}
+		else {	//若为中间层检查是否到达下一Activity
+			String achieveActivity = eqo.getTargetActivity(ReductionRunner.generateResultPath(index, 4) + "execute_tmp.log");
+			if(achieveActivity != null && achieveActivity.equals(targetActivity))
+				return true;
+			else 
+				return false;
+		}
+	}
+}

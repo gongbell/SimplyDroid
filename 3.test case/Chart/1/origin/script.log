@@ -1,0 +1,21 @@
+# Start Script
+type= user
+count= 10
+speed= 1.0
+start data >>
+LaunchActivity(es.senselesssolutions.gpl.weightchart, es.senselesssolutions.gpl.weightchart.ChartActivity)
+Drag(530.0, 238.0, 592.46704, 255.12378, 8)
+Tap(14.0, 141.0, 0)
+Tap(562.0, 245.0, 0)
+Tap(74.0, 285.0, 0)
+Tap(748.0, 424.0, 0)
+Tap(362.0, 374.0, 0)
+Tap(822.0, 440.0, 0)
+Tap(219.0, 212.0, 0)
+Tap(20.0, 192.0, 0)
+Tap(244.0, 422.0, 0)
+Tap(634.0, 460.0, 0)
+Tap(308.0, 385.0, 0)
+Tap(372.0, 48.0, 0)
+Drag(488.0, 229.0, 553.11444, 152.62791, 10)
+Tap(724.0, 109.0, 0)

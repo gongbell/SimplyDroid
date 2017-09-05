@@ -1,0 +1,143 @@
+package cn.edu.buaa.reduction;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import cn.edu.buaa.ReductionRunner;
+import cn.edu.buaa.command.AdbOperation;
+import cn.edu.buaa.state.EventQueueOperation;
+import cn.edu.buaa.state.EventState;
+import cn.edu.buaa.util.MD5;
+
+public class DeltaDebugging {	
+	private static final int TESTCASE_DELTA = 0;
+	private static final int TESTCASE_GRADIENT = 1;
+	private List<EventState> eQueue = new ArrayList<EventState>();
+	private String crash = null;
+	
+	private Set<String> failedSet = new HashSet<String>();
+	
+	int index;
+	
+	public DeltaDebugging() {
+		index = 0;
+	}
+	
+	public DeltaDebugging(int idx) {
+		index = idx;
+	}
+	
+	//The method of DD reduction entrance
+	public void reduce(){
+		System.out.println("Trace " + index + " DD. Start.");
+		long startTime = System.currentTimeMillis();
+
+		//read the log files and extract crash information
+		EventQueueOperation eopt = new EventQueueOperation();
+		eQueue = eopt.readLog(ReductionRunner.generateOriginPath(index));
+		crash = eopt.getCrash(ReductionRunner.generateOriginPath(index) + "execute.log");
+		
+		if(crash != null && !crash.equals("")){
+			List<EventState> ddList = new ArrayList<EventState>(eQueue);
+			ddList.remove(0);
+			//run the DD reduction
+			ddmin(ddList, 2);
+		}
+		else
+			System.out.println("Something wrong while getting crash info.");
+				
+		long endTime = System.currentTimeMillis();
+		
+		//calculate the time used while reduction completed
+		System.out.println("Trace " + index + " DD. Time used : " + (endTime - startTime) + "ms");
+		ReductionRunner.calculateTime(endTime - startTime);
+		System.out.println("------------------------------------------------");
+	}
+		
+	private void ddmin(List<EventState> tmpQueue, int partition){
+		System.out.println("EQ: " + tmpQueue.size() + ", partition: " + partition);
+		if(tmpQueue.size() == 1)
+			return;
+		boolean succ = false;
+		succ = execDeltaOrGrad(tmpQueue, partition, TESTCASE_DELTA);
+		if(succ) return;
+		else succ = execDeltaOrGrad(tmpQueue, partition, TESTCASE_GRADIENT);
+		if(succ) return;
+		
+		if(!succ && partition < tmpQueue.size()) {
+			ddmin(tmpQueue, Math.min(tmpQueue.size(), 2 * partition));
+		}
+		else {
+			printResult(tmpQueue);
+		}
+	}
+	
+	private boolean execDeltaOrGrad(List<EventState> tmpQueue, int partition, int type){
+		List<EventState> currList = tmpQueue;
+		int partsize = (currList.size() + 1) / partition;
+		boolean succ = false, isCrash = false;
+		String sign = null;
+		for(int i = 0; i < partition; i++){
+			List<EventState> tmp = createNewEventList(currList, i, partsize, type);
+			sign = MD5.getMD5(tmp);
+			if(failedSet.contains(sign)) continue;
+			isCrash = executeEventList(tmp);
+			if(isCrash){
+				succ = true;
+				if(type == TESTCASE_DELTA)	{
+					ddmin(tmp, 2);
+				}
+				else {
+					ddmin(tmp, Math.max(partition - 1, 2));
+				}
+				break;
+			} else {
+				if(!failedSet.contains(sign))
+					failedSet.add(sign);
+			}			
+		}
+		return succ;
+	}
+	
+	private void printResult(List<EventState> list){
+		List<EventState> tmp = new ArrayList<EventState>(list);
+		tmp.add(0, eQueue.get(0));
+		EventQueueOperation eqo = new EventQueueOperation();
+		eqo.printScript(tmp, ReductionRunner.generateResultPath(index, 1));
+	}
+	
+	private boolean executeEventList(List<EventState> list){
+		
+		printResult(list);
+		AdbOperation adb = new AdbOperation();
+		adb.execAdbShell(ReductionRunner.generateResultPath(index, 1), ReductionRunner.DEVICE_TMP_PATH, ReductionRunner.DEVICE_MONKEY_PATH, ReductionRunner.DEVICE_ID, ReductionRunner.PACKAGE_NAME, ReductionRunner.THROTTLE_TIME_MS);
+		EventQueueOperation eqo = new EventQueueOperation();
+
+		String newCrash = eqo.getCrash(ReductionRunner.generateResultPath(index, 1) + "execute_tmp.log");
+		if(newCrash != null && newCrash.equals(crash)){
+			return true;
+		}
+		
+		return false;
+	}
+	
+	private List<EventState> createNewEventList(List<EventState> queue, int idx, int size, int type){
+		List<EventState> res = new ArrayList<EventState>();
+		if(type == TESTCASE_DELTA){
+			for(int i = idx * size; i < Math.min(queue.size(), (idx+1) * size); i++){
+				res.add(queue.get(i));
+			}			
+		}
+		if(type == TESTCASE_GRADIENT){
+			for(int i = 0; i < queue.size(); i++){
+				if(i < idx * size || i >= (idx+1) * size){
+					res.add(queue.get(i));
+				}
+			}
+		}
+		return res;
+	}
+	
+}

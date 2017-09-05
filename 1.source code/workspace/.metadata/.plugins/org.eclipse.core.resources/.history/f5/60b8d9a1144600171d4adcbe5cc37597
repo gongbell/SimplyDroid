@@ -1,0 +1,56 @@
+package cn.edu.buaa.util;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.List;
+
+import cn.edu.buaa.state.EventState;
+
+public class MD5 {
+	public static String getMD5(List<EventState> queue){
+		String plainText = getIndexString(queue);
+		return getMD5(plainText);
+	}
+	
+	public static String getMD5(String text){
+		try {
+			MessageDigest md = MessageDigest.getInstance("MD5");
+			md.update(text.getBytes());
+			byte[] b = md.digest();
+			
+			int i;
+			
+			StringBuffer buf = new StringBuffer("");
+			for(int offset = 0; offset < b.length; offset++){
+				i = b[offset];
+				if(i < 0) {
+					i += 256;
+				}
+				if(i < 16) {
+					buf.append("0");
+				}
+				buf.append(Integer.toHexString(i));
+			}
+			
+			return buf.toString();
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+			return null;
+		}
+		
+	}
+	
+	private static String getIndexString(List<EventState> queue){
+		StringBuffer res = new StringBuffer("1");
+		for(EventState es: queue){
+			res.append("," + es.getIndex());
+		}
+		return res.toString();
+	}
+	
+//	public static void main(String[] args){
+//		System.out.println(getMD5("23,345,708"));
+//		System.out.println(getMD5("23,345,23,14546,676,3454,35,235,56763,709"));
+//	}
+	
+}

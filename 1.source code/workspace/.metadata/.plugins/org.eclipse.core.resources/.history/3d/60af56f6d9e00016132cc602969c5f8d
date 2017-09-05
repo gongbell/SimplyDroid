@@ -1,0 +1,96 @@
+package cn.edu.buaa.les.lt;
+
+import cn.edu.buaa.les.lt.reducer.DeltaDebugging;
+import cn.edu.buaa.les.lt.reducer.EntryReducer;
+import cn.edu.buaa.les.lt.reducer.FillingReducer;
+import cn.edu.buaa.les.lt.reducer.HierarchyDeltaDebugging;
+import cn.edu.buaa.les.lt.reducer.ImprovedHierarchyDeltaDebugging;
+import cn.edu.buaa.les.lt.reducer.ReducerManager;
+
+public class ReducerRunner {
+	/*
+	 * The strings of the path parameters, @param LOCAL_ORIGIN_PATH 
+	 * 						  @param LOCAL_RESULT_PATH
+	 * 						  @param DEVICE_TMP_PATH
+	 * would end with Character "/".
+	 * Besides, @param DEVICE_TMP_PATH is an external path in an android device or emulator.
+	 */
+//	public final static String LOCAL_ORIGIN_PATH = "C:\\Users\\Administrator\\Monkey\\origin\\";
+//	public final static String LOCAL_RESULT_PATH = "C:\\Users\\Administrator\\Monkey\\result\\";
+//	public final static String LOCAL_ORIGIN_PATH = "H:\\201607AndroidTest\\reducertest\\origin\\";
+//	public final static String LOCAL_RESULT_PATH = "H:\\201607AndroidTest\\reducertest\\result\\";
+	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\reducertest\\";
+//	public final static String DEVICE_TMP_PATH = "/sdcard/";
+	public final static String DEVICE_TMP_PATH = "/storage/sdcard0/";
+//	public final static String DEVICE_ID = "27002b7e";
+	public final static String DEVICE_ID = "A3P4E49EAF17";
+	public final static String PACKAGE_NAME = "org.jessies.dalvikexplorer";
+//	public final static String PACKAGE_NAME = "es.senselesssolutions.gpl.weightchart";
+//	public final static String PACKAGE_NAME = "com.ringdroid";
+//	public final static String PACKAGE_NAME = "net.fercanet.LNM";
+	
+	public final static int THROTTLE_TIME_MS = 500; 
+	public final static int TRACE_NUMBER = 0;	//0 for only one trace, no subdirectory
+	public final static int TEST_TYPE = 7;		//+4 for IHDD, +2 for HDD, +1 for DD. For example 7=111(2) for do all.
+	
+	public static void calculateTime(long ms){
+		long day = ms / (24 * 60 * 60 * 1000);
+		ms %= 24 * 60 * 60 * 1000;
+		long hour = ms / (60 * 60 * 1000);
+		ms %= 60 * 60 * 1000;
+		long minute = ms / (60 * 1000);
+		ms %= 60 * 1000;
+		long second = ms / 1000;
+		System.out.println("绋嬪簭杩愯鏃堕棿锛� " + day + " d " + hour + " h "
+				+ minute + " m " + second + " s.");
+	}
+	
+	public static String generateOriginPath(int index) {
+		if(index == 0)
+			return LOCAL_PATH + "origin\\";
+		else
+			return LOCAL_PATH + index +  "\\origin\\";
+	}
+	
+	public static String generateResultPath(int index) {
+		if(index == 0)
+			return LOCAL_PATH + "result\\";
+		else
+			return LOCAL_PATH + index +  "\\result\\";
+	}
+	
+	public static void main(String[] args) {
+//		long startTime = System.currentTimeMillis();
+		
+		/*
+//		ReducerManager rManager = new ReducerManager();
+//		rManager.addReducer(new EntryReducer());
+//		rManager.addReducer(new FillingReducer());
+//		
+//		rManager.run(LOCAL_ORIGIN_PATH, LOCAL_RESULT_PATH, DEVICE_TMP_PATH,
+//				DEVICE_ID, PACKAGE_NAME, THROTTLE_TIME_MS);		
+		*/
+		int testtype = TEST_TYPE;
+		if(testtype % 2 == 1)
+		{
+			DeltaDebugging dd = new DeltaDebugging();
+			dd.reduce();
+		}
+		testtype /=2 ;
+		if(testtype % 2 == 1)
+		{		
+			HierarchyDeltaDebugging hdd = new HierarchyDeltaDebugging();
+			hdd.reduce();
+		}
+		testtype /=2 ;
+		if(testtype % 2 == 1)
+		{	
+		
+		
+//		long endTime = System.currentTimeMillis();
+//		System.out.println("Time used : " + (endTime - startTime) + "ms");
+//		ReducerRunner rr = new ReducerRunner();
+//		rr.calculateTime(endTime - startTime);
+	}
+
+}

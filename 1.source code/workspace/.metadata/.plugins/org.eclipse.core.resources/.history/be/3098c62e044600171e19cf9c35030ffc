@@ -1,0 +1,147 @@
+package cn.edu.buaa;
+
+import cn.edu.buaa.reduction.DeltaDebugging;
+//import cn.edu.buaa.les.lt.reducer.EntryReducer;
+//import cn.edu.buaa.les.lt.reducer.FillingReducer;
+import cn.edu.buaa.reduction.HierarchicalDeltaDebugging;
+import cn.edu.buaa.reduction.BalancedHierarchicalDeltaDebugging;
+import cn.edu.buaa.reduction.LocalHierarchicalDeltaDebugging;
+//import cn.edu.buaa.les.lt.reducer.ReducerManager;
+
+public class ReductionRunner {
+	/*
+	 * The strings of the path parameters, @param LOCAL_ORIGIN_PATH 
+	 * 						  @param LOCAL_RESULT_PATH
+	 * 						  @param DEVICE_TMP_PATH
+	 * would end with Character "/".
+	 * Besides, @param DEVICE_TMP_PATH is an external path in an android device or emulator.
+	 */
+//	public final static String LOCAL_ORIGIN_PATH = "C:\\Users\\Administrator\\Monkey\\origin\\";
+//	public final static String LOCAL_RESULT_PATH = "C:\\Users\\Administrator\\Monkey\\result\\";
+//	public final static String LOCAL_ORIGIN_PATH = "H:\\201607AndroidTest\\reducertest\\origin\\";
+//	public final static String LOCAL_RESULT_PATH = "H:\\201607AndroidTest\\reducertest\\result\\";
+//	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\reducertestmi5\\";
+	
+	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\201703mu\\result\\syncMyPic\\";
+//	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\201703mu\\result\\Tippy\\";
+//	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\201703mu\\result\\whohasmystuff\\";
+	
+//	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\201703mu\\result\\Yahtzee\\";
+//	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\201703mu\\result\\K9mail\\";
+	
+//	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\201703mu\\result\\Dalvik\\";
+//	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\201703mu\\result\\Chart\\";
+//	public final static String LOCAL_PATH = "H:\\201607AndroidTest\\201703mu\\result\\Ringdroid\\";
+	
+	public final static String DEVICE_MONKEY_PATH = "/data/local/";
+	public final static String DEVICE_TMP_PATH = "/storage/emulated/0/";
+	public final static String DEVICE_ID = "4f9ef128";
+
+//	public final static String DEVICE_TMP_PATH = "/sdcard/";
+//	public final static String DEVICE_ID = "27002b7e";
+	
+	public final static String PACKAGE_NAME = "com.nloko.android.syncmypix";	
+//	public final static String PACKAGE_NAME = "net.mandaria.tippytipper";	
+//	public final static String PACKAGE_NAME = "de.freewarepoint.whohasmystuff";
+
+//	public final static String PACKAGE_NAME = "com.tum.yahtzee";
+//	public final static String PACKAGE_NAME = "cri.sanity";	
+//	public final static String PACKAGE_NAME = "com.fsck.k9";	
+
+//	public final static String PACKAGE_NAME = "org.jessies.dalvikexplorer";		
+//	public final static String PACKAGE_NAME = "es.senselesssolutions.gpl.weightchart";
+//	public final static String PACKAGE_NAME = "com.ringdroid";
+//	public final static String PACKAGE_NAME = "net.fercanet.LNM";
+	
+	public final static int THROTTLE_TIME_MS = 800; 
+//	public final static int THROTTLE_TIME_MS = 600;
+//	public final static int TRACE_START = 1;
+	public final static int TRACE_NUMBER = 4;	//0 for only one trace, no subdirectory
+	public final static boolean NEED_EXTRACHECK = false;
+	public final static boolean DO_DD = true;
+//	public final static boolean DO_DD = false;
+	public final static boolean DO_HDD = true;
+//	public final static boolean DO_HDD = false;
+	public final static boolean DO_IHDD = true;
+//	public final static boolean DO_IHDD = false;
+	public final static boolean DO_LHDD = true;
+//	public final static boolean DO_LHDD = false;
+//	
+	public static void calculateTime(long ms){
+		long day = ms / (24 * 60 * 60 * 1000);
+		ms %= 24 * 60 * 60 * 1000;
+		long hour = ms / (60 * 60 * 1000);
+		ms %= 60 * 60 * 1000;
+		long minute = ms / (60 * 1000);
+		ms %= 60 * 1000;
+		long second = ms / 1000;
+		System.out.println(day + " d " + hour + " h " + minute + " m " + second + " s.");
+	}
+	
+	public static String generateOriginPath(int index) {
+		return LOCAL_PATH + index +  "\\origin\\";
+	}
+	
+	public static String generateResultPath(int index,int type) {
+		String path;
+		path = LOCAL_PATH + index + "\\";
+		if(type == 1)
+			path = path + "resultdd\\";
+		else if(type == 2)
+			path = path + "resulthdd\\";
+		else if(type == 3)
+			path = path + "resultbhdd\\";
+		else if(type == 4)
+			path = path + "resultlhdd\\";
+		return path;
+	}
+	
+	public static void main(String[] args) {
+//		long startTime = System.currentTimeMillis();
+		
+		/*
+//		ReducerManager rManager = new ReducerManager();
+//		rManager.addReducer(new EntryReducer());
+//		rManager.addReducer(new FillingReducer());
+//		
+//		rManager.run(LOCAL_ORIGIN_PATH, LOCAL_RESULT_PATH, DEVICE_TMP_PATH,
+//				DEVICE_ID, PACKAGE_NAME, THROTTLE_TIME_MS);		
+		*/
+		int i = 4;
+//		if(ReducerRunner.TRACE_NUMBER == 0)
+//			i = 0;
+//		else
+//			i = TRACE_START;
+		
+		for(; i <= ReductionRunner.TRACE_NUMBER; i++)
+		{
+			if(DO_DD)
+			{
+				DeltaDebugging dd = new DeltaDebugging(i);
+				dd.reduce();
+			}
+			if(DO_HDD)
+			{		
+				HierarchicalDeltaDebugging hdd = new HierarchicalDeltaDebugging(i);
+				hdd.reduce();
+			}
+			if(DO_IHDD)
+			{		
+				BalancedHierarchicalDeltaDebugging ihdd = new BalancedHierarchicalDeltaDebugging(i);
+				ihdd.reduce();
+			}
+			if(DO_LHDD)
+			{		
+				LocalHierarchicalDeltaDebugging lhdd = new LocalHierarchicalDeltaDebugging(i);
+				lhdd.reduce();
+			}
+			
+		}		
+		
+//		long endTime = System.currentTimeMillis();
+//		System.out.println("Time used : " + (endTime - startTime) + "ms");
+//		ReducerRunner rr = new ReducerRunner();
+//		rr.calculateTime(endTime - startTime);
+	}
+
+}

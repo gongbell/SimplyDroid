@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring accessors="true" comment="Delete element from project &apos;MonkeyReducer&apos;&#x0D;&#x0A;- Original project: &apos;MonkeyReducer&apos;&#x0D;&#x0A;- Original element: &apos;cn.edu.buaa.les.lt.reducer.LayerbasedDeltaDebugging.java&apos;" description="Delete element" element1="/src&lt;cn.edu.buaa.les.lt.reducer{LayerbasedDeltaDebugging.java" elements="1" flags="589830" id="org.eclipse.jdt.ui.delete" resources="0" stamp="1489607890220" subPackages="false" version="1.0"/>
+</session>
