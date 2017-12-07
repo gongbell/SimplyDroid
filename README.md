@@ -1,5 +1,8 @@
 # SimplyDroid
 SimplyDroid: Efficient Event Sequence Simplification for Android Application (Hierarchical Delta Debugging for Monkey input events)
+The source code for our work published in ASE 2017.
+
+Contact Dr. Bo Jiang in case you have comments or problems with the work. gongbell@gmail.com, http://jiangbo.buaa.edu.cn
 
 0 Files overview
 
