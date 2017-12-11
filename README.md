@@ -4,6 +4,12 @@ The source code for our work published in ASE 2017.
 
 Contact Dr. Bo Jiang in case you have comments or problems with the work. gongbell@gmail.com, http://jiangbo.buaa.edu.cn
 
+Errota of the ASE 17 paper: Yahtzee and K9mail was running on Mi1 rather than Mi5. The coordinates of the inputs also confirms this.
+
+Note: We use Mi1(Android 4.4.2) and Mi5(Android 6.0.1) for experimentation. However, using the same Android OS version on emulator or different hardware may not lead to crash for the same trace. This is partially caused by the coordinates-based scripts of Monkey tool and partially caused by the difference of the OS images or the difference between hardware and emulator. To get the CM13 Android OS image used for flashing Mi5, you can contact Dr. Bo Jiang. 
+
+In practice, you can first check whether the original trace provided can trigger crash before reducing with XDD algorithms.
+
 0 Files overview
 
 	The files provided by us are organized into 3 parts:
