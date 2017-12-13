@@ -6,7 +6,11 @@ Contact Dr. Bo Jiang in case you have comments or problems with the work. gongbe
 
 Errota of the ASE 17 paper: Yahtzee and K9mail was running on Mi1 rather than Mi5. The coordinates of the inputs also confirms this.
 
-Note: We use Mi1(Android 4.4.2) and Mi5(Android 6.0.1) for experimentation. However, using the same Android OS version on emulator or different hardware may not lead to crash for the same trace. This is partially caused by the coordinates-based scripts of Monkey tool and partially caused by the difference of the OS images or the difference between hardware and emulator. To get the CM13 Android OS image used for flashing Mi5, you can contact Dr. Bo Jiang. 
+Note: We use Mi1(Android 4.4.2) and Mi5(Android 6.0.1) for experimentation. However, using the same Android OS version on emulator or different hardware may not lead to crash for the same trace. This is partially caused by the coordinates-based scripts of Monkey tool and partially caused by the difference of the OS images or the difference between hardware and emulator. 
+
+The CM13 Android OS image for Mi5 is shared at https://pan.baidu.com/s/1jH7Ix4y. 
+
+Some bugs, such as the ActivityNotFound bug for DalvikExplorer, will only manifest when there is NO map applications installed on Mi1.
 
 In practice, you can first check whether the original trace provided can trigger crash before reducing with XDD algorithms.
 
