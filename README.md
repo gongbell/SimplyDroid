@@ -8,7 +8,7 @@ Errota of the ASE 17 paper: Yahtzee and K9mail was running on Mi1 rather than Mi
 
 Note: We use Mi1(Android 4.4.2) and Mi5(Android 6.0.1) for experimentation. However, using the same Android OS version on emulator or different hardware may not lead to crash for the same trace. This is partially caused by the coordinates-based scripts of Monkey tool and partially caused by the difference of the OS images or the difference between hardware and emulator. 
 
-The CM13 Android OS image for Mi5 is shared at https://pan.baidu.com/s/1jH7Ix4y. 
+The CM13 Android OS image for Mi5 is shared at: https://pan.baidu.com/s/1kYNylPFIvixKugIWHdNwpA  password: 30lq 
 
 Some bugs, such as the ActivityNotFound bug for DalvikExplorer, will only manifest when there is NO map applications installed on Mi1.
 
